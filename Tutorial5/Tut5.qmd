@@ -1,0 +1,127 @@
+---
+title: "Logistic Regression 3"
+author: "Lin Yu"
+date: "2025-02-14"
+format: 
+  html: 
+    toc: true
+    embed-resources: true
+---
+
+```{r}
+#| warning: false
+#| message: false
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(here)
+```
+
+## Recap of Tutorial 4
+
+```{r}
+library(rms)
+load(here("data","tutdata.RData"))
+dd <- datadist(tutdata)
+options(datadist = "dd")
+fit1 <- lrm(y ~ blood.pressure + sex + age + rcs(cholesterol,4), data = tutdata)
+```
+
+```{r}
+fit2 <- lrm(y ~ blood.pressure + sex * (age + rcs(cholesterol,4)), data = tutdata,x=TRUE, y= TRUE)
+anova(fit2)
+
+anova(fit2)
+```
+
+compare two models using LRT. To use LRT, one model needs to be nested within a larger model.
+
+```{r}
+lrtest(fit1,fit2)
+```
+
+
+##  Tutorial 5
+
+```{r}
+set.seed(1017)
+validate(fit2, B = 100)
+```
+
+- index.orig: The performance metric computed on the full dataset.        
+- training: The metric computed on the training dataset (bootstrap sample).   - test: The metric computed on the test dataset (out-of-bootstrap sample).    
+- optimism: The difference between training and test performance, estimating overfitting.            
+- index.corrected: The optimism-adjusted estimate of model performance.
+n: Number of bootstrap iterations (100)     
+- g (Gini coefficient): Related to AUC (Area Under the Curve)
+- Emax (Maximum Calibration Error): Largest difference between predicted and observed probabilities.
+
+```{r}
+dff <- resid(fit2, "dffits")
+plot(dff)
+show.influence(which.influence(fit2), data.frame(tutdata, dffits = dff), report = c("dffits"))
+
+```
+
+The dffits statistic measures the influence of each observation on the fitted model. It represents the change in the predicted value for a data point if that data point were removed from the model.
+```{r}
+# Partial residuals are the residuals from the model, adjusted for the effect of the predictors that are not of primary interest
+resid(fit2, "partial", pl = "loess")
+```
+
+- Non-linearity: If the loess curve shows a clear non-linear relationship between a predictor and the residuals, you might need to consider transforming that predictor (e.g., using log or polynomial terms) to improve the model fit.        
+- Outliers or influential points: Any points that deviate significantly from the smoothed curve might be influential or outliers, warranting further investigation.       
+
+## Boostrapping
+
+resampling technique used to estimate the sampling distribution of a statistic by repeatedly sampling with replacement from the original dataset, useful when theoretical distributions are unknown or difficult to derive.
+
+for example, say we want to calculate the confidence interval for sample mean, we need to know the distribution of the sample mean:
+
+```{r}
+
+set.seed(1017)
+
+## pop data
+n <- 1000
+data <- rnorm(n, mean=5, sd=10) 
+
+analytical_lower <- mean(data) - 1.96*sd(data)/sqrt(n)
+analytical_upper <- mean(data) + 1.96*sd(data)/sqrt(n)
+
+
+nboot <- 1000
+
+## sample(data, size=n, replace=TRUE) bootstrap sampling
+## mean(sample(data, size=n, replace=TRUE)) calculate sample mean
+boot_means <- replicate(nboot, mean(sample(data, size=n, replace=TRUE)))
+
+boot_means %>% density() %>% plot()
+# percentile 
+boot_lower_bound <- quantile(boot_means, 0.025)
+boot_upper_bound <- quantile(boot_means, 0.975)
+
+
+cat("Original Sample Mean:", mean(data), "\n")
+cat("95% CI for Mean (analytical solution):", analytical_lower, analytical_upper, "\n")
+cat("95% Bootstrapped (nboot=1000) CI for Mean:", boot_lower_bound, boot_upper_bound, "\n")
+```
+
+what would happen if we increase the number of bootstrap?
+```{r}
+nboot <- 10000
+
+## sample(data, size=n, replace=TRUE) bootstrap sampling
+## mean(sample(data, size=n, replace=TRUE)) calculate sample mean
+boot_means2 <- replicate(nboot, mean(sample(data, size=n, replace=TRUE)))
+
+# percentile 
+boot_lower_bound <- quantile(boot_means2, 0.025)
+boot_upper_bound <- quantile(boot_means2, 0.975)
+cat("95% CI for Mean (analytical solution):", analytical_lower, analytical_upper, "\n")
+cat("95% Bootstrapped(boot=10000) CI for Mean:", boot_lower_bound, boot_upper_bound, "\n")
+```
+
+
+
+

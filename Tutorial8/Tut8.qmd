@@ -1,0 +1,71 @@
+---
+title: "Survival Analysis 3"
+author: "Lin Yu"
+date: "2025-03-17"
+format: 
+  html: 
+    toc: true
+    embed-resources: true
+---
+
+```{r}
+#| warning: false
+#| message: false
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(here)
+```
+
+## Recap of Tutorial 7
+
+We went over how KM estimator (for survival probability) is constructed for discrete time. 
+
+We will discuss continuous time in this tutorial. 
+
+## Tutorial 8
+
+Today we will cover diagnostics.
+
+PH assumption checked using [Schoenfeld residual](https://thisislinyu.github.io/DLSPH/STA2112/2024_04_02_STA2212_Cox_1972_final_project.pdf).
+
+```{r}
+library(rms)
+library(survival)
+library(lattice)
+str(mgus2)
+dd <- datadist(mgus2)
+options(datadist="dd")
+str(mgus2)
+
+fit1 <- cph(Surv(futime, death) ~ sex, data = mgus2, x = TRUE, y = TRUE)
+print(fit1.zph <- cox.zph(fit1))
+plot(fit1.zph)
+```
+
+check function form for continuous covariates using martingale residual
+
+```{r}
+res <- resid(fit1)
+res.lo <- loess(res~hgb,data=mgus2)
+res.ols <- ols(res~rcs(hgb,3),data=mgus2)
+res.ols <- ols(res~rcs(hgb,5),data=mgus2)
+plot(Predict(res.ols,hgb),addpanel=function(...){
+ panel.points(mgus2$hgb,res)
+ panel.lines(seq(5,20,length.out=25),
+ predict(res.lo,seq(5,20,length.out=25)),col="red")},
+ ylim=1.15*range(res),
+ ylab="Martingale Residual",xlab="Hgb")
+```
+
+
+```{r}
+fit2 <- cph(Surv(futime, death) ~ sex * (rcs(age, 5) + rcs(hgb, 5) + rcs(creat,
+    5)), data = mgus2, x = TRUE, y = TRUE)
+anova(fit2)
+```
+
+```{r}
+set.seed(1017)
+validate(fit2, B = 100)
+```

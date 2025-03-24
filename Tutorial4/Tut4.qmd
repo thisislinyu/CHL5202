@@ -1,0 +1,139 @@
+---
+title: "Logistic Regression 2"
+author: "Lin Yu"
+date: "2025-02-10"
+format: 
+  html: 
+    toc: true
+    embed-resources: true
+---
+
+```{r}
+#| warning: false
+#| message: false
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(here)
+```
+
+## Recap of Tutorial 3
+
+
+1. How would you calculate the estimated mean outcome (probability of otucome being positive, $E(Y) = P(Y=1)$)
+
+:::{.callout-note collapse="true"}
+### Check Answer
+$\hat P(Y=1) = \frac{exp(\hat Z)}{1+exp(\hat Z)}$, where $Z$ is the linear combination of predictors
+::: 
+
+2. For (generalized) linear regression $g(E(Y)) = \beta_0 + \beta_1 X_1 +\ldots + \beta_p X_p$, the MLE estimators $\boldsymbol{\hat \beta} = [ \hat\beta_0, \hat \beta_1,\ldots \hat \beta_p]$ follows a multivariate normal distribution, each $\hat \beta$ is a normal distribution.
+
+3. if I have a R.V. $\hat \beta = [\hat \beta_1, \hat \beta_2]$ follows a bivariate normal distribution, how do we calculate the variance for $\beta_1+\beta_2$ , and for $a \beta_1 + b\beta_2$?
+
+:::{.callout-note collapse="true"}
+### Check Answer
+$$
+\begin{bmatrix} \beta_1 \\ \beta_2 \end{bmatrix} \sim N\left( \begin{bmatrix} \mu_1 \\ \mu_2 \end{bmatrix}, \begin{bmatrix} \sigma_1^2 & \rho \sigma_1 \sigma_2 \\ \rho \sigma_1 \sigma_2 & \sigma_2^2 \end{bmatrix} \right),
+$$
+
+where $\rho \sigma_1 \sigma_2$ is the covariance between $\beta_1$ and $\beta_2$. 
+
+the variance of $\beta_1 + \beta_2$ is given by:
+$$
+\text{Var}(\beta_1 + \beta_2) = \sigma_1^2 + \sigma_2^2 + 2\rho \sigma_1 \sigma_2.
+$$
+$$
+\text{Var}(a\beta_1 + b\beta_2) = a^2\sigma_1^2 + b^2\sigma_2^2 + 2ab\rho \sigma_1 \sigma_2.
+$$
+:::
+
+4. Given 1-3, do you know how can we calculate the variance of the estiamted probability of the outcome being positive ($\hat P(Y=1)$)?
+
+```{r}
+library(rms)
+load(here("data","tutdata.RData"))
+dd <- datadist(tutdata)
+options(datadist = "dd")
+
+fit1 <- glm(y ~ blood.pressure + sex + age + cholesterol, data = tutdata,family = binomial("logit"))
+
+summary(fit1)
+
+anova(fit1)
+
+
+fit1 %>% coef()
+
+fit1 %>% vcov()
+
+
+## point estimate of beta_sex
+beta_sex_hat <- coef(fit1)["sexmale"]
+
+## standard error for coef of sex
+beta_sex_se <- sqrt(vcov(fit1)[3,3])
+
+## we know beta_hat follows a normal distribution, with mean=beta_sex_hat, 
+
+alpha <- qnorm(0.975,mean=0,sd=1)
+alpha
+upper <- exp(beta_sex_hat + alpha*beta_sex_se)
+lower <- exp(beta_sex_hat - alpha*beta_sex_se)
+
+lower 
+upper 
+
+predict(fit1,type="response") %>% head()
+
+design_matrix <- model.matrix(y~blood.pressure + sex + age + cholesterol, data=tutdata)
+
+design_matrix %>% head()
+
+design_matrix[1,]
+fit1 %>% coef()
+## linear combination of predictors
+Z <- design_matrix[1,] %*% (fit1 %>% coef())
+
+p_hat <- exp(Z)/(1+exp(Z))
+
+p_hat
+
+```
+
+## Tutorial 4
+
+```{r}
+fit1 <- lrm(y ~ blood.pressure + sex + age + rcs(cholesterol,4), data = tutdata)
+```
+
+```{r}
+fit2 <- lrm(y ~ blood.pressure + sex * (age + rcs(cholesterol,4)), data = tutdata)
+anova(fit2)
+
+anova(fit2)
+```
+
+
+
+
+
+compare two models using LRT. To use LRT, one model needs to be nested within a larger model.
+
+```{r}
+lrtest(fit1,fit2)
+```
+
+visualize the effect modifications:
+```{r}
+plot(Predict(fit2,age,sex))
+plot(Predict(fit2,cholesterol,sex))
+```
+
+
+what would the plots look like without effect modification:
+
+```{r}
+plot(Predict(fit1, age, sex = "male"))
+plot(Predict(fit1, age, sex = "female"))
+```

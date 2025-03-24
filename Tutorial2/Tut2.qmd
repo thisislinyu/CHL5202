@@ -1,0 +1,227 @@
+---
+title: "Model Validation"
+author: "Lin Yu"
+date: "2025-01-27"
+format: 
+  html: 
+    toc: true
+    embed-resources: true
+---
+
+```{r}
+#| warning: false
+#| message: false
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(here)
+```
+## Recap of tutorial 1
+
+Understand `random variable` through the following simulation: 
+```{r}
+n_sample <- 1000
+beta0 <-  0.5
+beta1 <- 2
+x <- rnorm(n_sample,mean = 5, sd = 10)
+
+random_error <- rnorm(n_sample,mean = 0, sd = 5)
+
+y <- beta0 + beta1*x + random_error
+
+pop_dat <- data.frame(y = y,
+           x = x)
+
+pop_dat %>% 
+  ggplot(aes(x = x, y = y))+
+  geom_point()+
+  theme_bw()
+```
+
+observed **standard deviation of the data**:
+
+```{r}
+pop_dat %>% 
+  ggplot(aes(y))+
+  geom_histogram()+
+  theme_bw()
+
+sd(pop_dat$y)
+```
+
+
+```{r}
+sample_size <- 100
+sample_dat <- pop_dat[sample(c(1:sample_size),replace = FALSE),]
+
+sample_dat %>% datatable()
+
+sample_dat %>% 
+  ggplot(aes(x = x, y = y))+
+  geom_point()+
+  theme_bw()
+```
+
+the standard deviation of the estimator ($\hat\beta$):
+```{r}
+glm_m <- glm(y~x, data= sample_dat)
+
+set.seed(1017)
+## lapply parallel computing: more effecient than a for loop:)
+
+coef_dat <- lapply(1:100, function(i){
+  sample_dat <- pop_dat[sample(100,replace = FALSE),]
+  glm_m <- glm(y~x, data= sample_dat)
+  coef(glm_m)[2]
+})
+
+coef_dat %>% head()
+
+
+set.seed(1017) 
+beta_hat_dat <- lapply(1:100, function(i) {
+  sample_dat <- pop_dat[sample(seq_len(nrow(pop_dat)), ## sample from 1: n_sample 
+                               sample_size, ## sample size
+                               replace = FALSE), ]
+  glm_m <- glm(y ~ x, data = sample_dat)
+  coef(glm_m)[2]
+}) %>% unlist()
+
+beta_hat_dat %>%
+  data.frame() %>% 
+  ggplot(aes(.)) +
+  geom_histogram()
+```
+
+```{r}
+beta_hat <- NULL
+for(sample_size in c(20,100,200,500,1000)){
+  beta_hat_tmp <- lapply(1:100, function(i) {
+  sample_dat <- pop_dat[sample(seq_len(nrow(pop_dat)), ## sample from 1: n_sample 
+                               sample_size, ## sample size
+                               replace = FALSE), ]
+  glm_m <- glm(y ~ x, data = sample_dat)
+  coef(glm_m)[2]
+}) %>% unlist() 
+  beta_hat <- cbind(beta_hat,beta_hat_tmp )
+}
+
+beta_hat <- beta_hat %>% data.frame()
+
+colnames(beta_hat) <- paste0("sample size = ",c(20,100,200,500,1000))
+
+beta_hat %>% 
+  datatable()
+
+apply(beta_hat,2, sd)
+```
+
+viz the distribution of $\hat \beta$:
+```{r}
+library(tidyr)
+plot_dat <- beta_hat %>% 
+  pivot_longer(cols = everything(),
+    values_to = "beta_hat",
+    names_to = "sample size",
+    names_prefix = "sample size ="
+               ) 
+  
+ plot_dat <- plot_dat %>%  mutate(`sample size` = as.numeric(`sample size`))
+
+plot_dat$`sample size` <- factor(plot_dat$`sample size`, 
+                                 levels = c("20","100", "200", "500", "1000"), 
+                                 labels = c("20","100", "200", "500", "1000"))
+
+
+  plot_dat %>% 
+    ggplot(aes(x = beta_hat,color = `sample size`, fill = `sample size`)) +
+    geom_histogram()+
+    facet_grid(cols = vars(`sample size`),scales = "free_y")+
+    theme_bw()+
+    theme(legend.position = "bottom")
+
+```
+
+
+## Tutorial 2: Model Validation
+
+Use the hwy2.RData file available from the course page. After attaching the rms package and doing the usual datadist()/options() task        
+1. Fit the following model
+
+```r
+fit <- ols(rate~rcs(trks,4)+rcs(sigs1,4)+type+hwy,data=hwy2,x=TRUE,y=TRUE)
+```
+
+2. run both the ordinary bootstrap validation and the .632 bootstrap validation on this model. compare the results.
+
+***
+
+```{r}
+#| warning: false
+#| message: false
+rm(list = ls())
+library(rms)
+library(dplyr)
+## change your working directory as necessary
+load(here("data","hwy2.RData"))
+
+str(hwy2)
+
+```
+
+:::{.callout-note collapse="true"}
+# How do you code factor/nominal variables?
+
+When working with factor/nominal/categorical variables in R, preprocessing is necessary to ensure the data is properly handled by statistical models and algorithms. Many R functions automatically perform dummy coding when a variable is specified as a factor, typically using the `as.factor()` function.
+
+_Side note: Dummy coding (sometimes confused with one-hot encoding in CS) is just one way to code factor variables. It is popular because of its ease of interpretation._ 
+:::
+
+
+:::{.callout-note collapse="true"}
+# Validate the model
+
+A complete process of model validation usually consists of two parts: **internal** and **external** validation. Ideally (when you’re lucky 😄), you will have two independent datasets, such as EHR data from two hospitals. You will first _build_ or ( _train_) and _validate_ your model internally using data from hospital A (the train-validation dataset). Then the model can be sent to hospital B for external validation (test set). If you do not have two datasets, you can manually divide the data into two parts, with one part mimicking the external dataset.       
+
+- Split-sample or split-sample averaged(SSA)
+
+- K-fold Cross-validation   
+
+- Bootstrap: ordinary, .632
+
+```{r}
+# sample size 100k
+set.seed(1017)
+n_sample <- 100000
+patient_id <- c(1:n_sample)
+
+# sample with replacement
+sample_dat <- sample(patient_id,size=n_sample,replace = TRUE) 
+# proportion of samples selected in bootstrap sampling with replacement
+((sample_dat%>% unique() %>% length())/n_sample )%>% round(3)
+
+```
+
+:::
+```{r}
+h.dd <- datadist(hwy2)
+options(datadist="h.dd")
+fit <- ols(rate~rcs(trks,4)+
+             rcs(sigs1,4)+type+hwy,
+           data=hwy2,x=TRUE,y=TRUE)
+fit$x %>% head()
+```
+
+
+```{r}
+set.seed(1017)
+validate(fit, B=100)
+```
+
+
+```{r}
+set.seed(1017)
+validate(fit,method = ".632",B=100)
+```
+
+Bootstrapping with replacement leads to some data points being repeated in the bootstrap sample. As a result, the model may end up 'memorizing' these repeated points, which can cause it to perform better.

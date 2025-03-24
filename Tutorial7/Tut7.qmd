@@ -1,0 +1,124 @@
+---
+title: "Survival Analysis 2"
+author: "Lin Yu"
+date: "2025-03-10"
+format: 
+  html: 
+    toc: true
+    embed-resources: true
+---
+
+```{r}
+#| warning: false
+#| message: false
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(here)
+```
+
+## Recap of Tutorial 6
+
+We went over how KM estimator (for survival probability) is constructed for discrete time case. The idea being that we look for the connections among survial function, hazard function and the cumulative density function. 
+
+The derivations can be found [here](https://lin-yu.me/cheatsheet/2024_02_12likelihood_survival/) 
+
+The non-parametric estimator for hazard is quite intuitive. 
+
+$$\hat \lambda(t_j) = \frac{d_j}{r_j}$$
+
+where $d_j$ is the number of death at time $j$, and $r_j$ is the number of participants at risk at time $j$
+
+The KM/product-limit estimator (for survival):
+$$\hat S(t_j) = \prod_{i=1}^{j}(1- \hat \lambda(t_i))$$
+
+an example can be found [here](https://thisislinyu.github.io/DLSPH/CHL5209/2024_03_08KM_curve.pdf)
+
+here is my [cheatsheet](https://thisislinyu.github.io/DLSPH/CHL5209/survival_analysis_comps.pdf) for survival analysis basics.
+
+
+## Tutorial 7
+
+We will cover parametric method, specifically, Cox regression, and time is treated as continuous.
+```{r}
+library(rms)
+library(survival)
+
+dd <- datadist(mgus2)
+options(datadist="dd")
+
+fit.km <- npsurv(Surv(futime,death)~sex,data=mgus2)
+
+### Check exponential
+plot(fit.km,fun="cumhaz")
+
+## check proportionality (difference)
+plot(fit.km,fun="cloglog")
+
+## parametric model exp
+print(fit1 <- psm(Surv(futime,death)~sex,
+                  data=mgus2,dist="exponential"))
+
+
+### HR for sex: M vs. F
+exp(-coef(fit1)[2])
+
+### Survival time ratio
+summary(fit1,sex="F")
+
+survplot(fit1,sex)
+## KM non-parametric
+survplot(fit.km,add=TRUE,label.curves=FALSE,conf="none",col="red")
+```
+
+```{r}
+## fit weibull
+print(fit2 <- psm(Surv(futime,death)~sex,data=mgus2,dist="weibull"))
+
+# phreg
+# survreg
+
+### HR for sex: M vs. F
+## weibull model: AFT parametrization
+## -gamma /scale
+exp(-coef(fit2)[2]/fit2$scale)
+
+### Survival time ratio
+
+summary(fit2,sex="F")
+
+survplot(fit2,sex)
+survplot(fit.km,add=TRUE,label.curves=FALSE,conf="none",col="red")
+
+
+## ---------------------------------------------------------------------------------------------
+survplot(fit.km,conf="none")
+survplot(fit1,sex,add=TRUE,label.curves=FALSE,col="red")
+survplot(fit2,sex,add=TRUE,label.curves=FALSE,col="blue")
+
+```
+
+Cox PH model
+```{r}
+print(fit1.cox <- cph(Surv(futime,death)~sex,data=mgus2))
+
+summary(fit1.cox,sex="F")
+
+print(fit2.cox <- cph(Surv(futime,death)~sex+rcs(age,4),data=mgus2))
+
+### LRT
+
+lrtest(fit1.cox,fit2.cox)
+
+### Adjusted effect for sex
+
+summary(fit2.cox,sex="F")
+
+### Plot of age effect
+# dev.off()
+plot(Predict(fit2.cox,age,sex))
+
+
+```
+
+

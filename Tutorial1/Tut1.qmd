@@ -1,0 +1,336 @@
+---
+title: "Linear Regression"
+author: "Lin Yu"
+date: "2025-01-20"
+format: 
+  html: 
+    toc: true
+    embed-resources: true
+---
+
+## Q1
+
+Load the data frame tut1 into R from the file tut1.RData available on the course page. The data frame contains the variables x and y.
+
+```{r}
+#| warning: false
+#| code-fold: true
+library(here)
+library(texreg)
+library(rms)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+options(prType = "latex")
+options(prType='html')
+load(here("data",'tut1.rdata'))
+
+knitr::opts_chunk$set(warning = FALSE,
+                      message = FALSE)
+theme_set(
+  theme_bw(base_size = 18) +
+    theme(legend.position = "bottom")
+)
+```
+
+Fit a simple linear regression with y as the response and x as the predictor
+```{r}
+fit0 <- ols(y ~ x, data = tut1)
+```
+
+::: callout-note
+or you can use `glm` (generalized linear model) or `lm` (linear model)
+```{r}
+fit_glm <- glm(y~x, data= tut1)
+fit_lm <- lm(y~x, data = tut1)
+```
+:::
+
+The results are identical! 
+
+```{r}
+#| output: asis
+#| code-fold: true
+#| warning: false
+htmlreg(list(fit0, fit_lm,fit_glm), 
+        ci.force = TRUE,
+        #custom.coef.map = keepvars,
+        custom.model.names = c("ols", "lm","glm"))
+```
+
+Diagnostic plots for model checking
+
+::: callout-tip
+If the model is correctly specified, and all assumptions (known as **LINE**) are met, the residuals should be randomly scattered around zero
+:::
+
+```{r}
+#| tbl-cap: Scatter plots
+#| layout-ncol: 3
+#| tbl-subcap: true
+
+pred_glm <- tut1 %>% 
+             mutate(
+               yobs = y,
+           yhat = predict(fit_glm),
+           resid = y - yhat)
+
+x_y_plot <- ggplot(pred_glm, aes(x,yobs) )+
+  geom_point()+
+  geom_smooth()
+
+x_resid_plot <- ggplot(pred_glm, aes(x,resid) )+
+  geom_point()+
+  geom_smooth()
+
+
+yhat_resid_plot <- ggplot(pred_glm, aes(yhat,resid) )+
+  geom_point()+
+  geom_smooth()
+
+x_y_plot
+
+x_resid_plot 
+
+yhat_resid_plot
+
+```
+predicted result using restricted cubic spline (skyblue) versus simple linear (black)
+```{r}
+fit_rcs <- ols(y ~ rcs(x, 3), data = tut1)
+
+pred_rcs <- tut1 %>% 
+  mutate(
+    pred_rcs = predict(fit_rcs,data = tut1)
+  )
+  
+pred_rcs %>% ggplot( aes(x =x, y = pred_rcs))+
+ # geom_point(size = 0.01)+
+  geom_line(color = "skyblue")+
+ # geom_point(data =pred_glm, aes(x =x, y = yhat) ,size = 0.01, ) +
+geom_line(data =pred_glm, aes(x =x, y = yhat),color = "black"  ,alpha = 0.7)
+```
+
+Check the diagnostic plots again (`knots = 3`)
+
+```{r}
+#| tbl-cap: Scatter plots
+#| layout-ncol: 3
+#| tbl-subcap: true
+
+pred_rcs <- tut1 %>% 
+             mutate(
+               yobs = y,
+           yhat = predict(fit_rcs),
+           resid = y - yhat)
+
+x_y_plot <- ggplot(pred_rcs, aes(x,yobs) )+
+  geom_point()+
+  geom_smooth()
+
+x_resid_plot <- ggplot(pred_rcs, aes(x,resid) )+
+  geom_point()+
+  geom_smooth()
+
+
+yhat_resid_plot <- ggplot(pred_rcs, aes(yhat,resid) )+
+  geom_point()+
+  geom_smooth()
+
+x_y_plot
+
+x_resid_plot 
+
+yhat_resid_plot
+
+```
+
+
+
+experiment with different knot values:
+
+::: {.panel-tabset}
+
+### knot = 4
+```{r}
+#| tbl-cap: Scatter plots
+#| layout-ncol: 3
+#| tbl-subcap: true
+#| code-fold: true
+
+fit_rcs <- ols(y ~ rcs(x, 5), data = tut1)
+pred_rcs <- tut1 %>% 
+             mutate(
+               yobs = y,
+           yhat = predict(fit_rcs),
+           resid = y - yhat)
+
+x_y_plot <- ggplot(pred_rcs, aes(x,yobs) )+
+  geom_point()+
+  geom_smooth()
+
+x_resid_plot <- ggplot(pred_rcs, aes(x,resid) )+
+  geom_point()+
+  geom_smooth()
+
+
+yhat_resid_plot <- ggplot(pred_rcs, aes(yhat,resid) )+
+  geom_point()+
+  geom_smooth()
+
+x_y_plot
+
+x_resid_plot 
+
+yhat_resid_plot
+
+
+```
+
+
+### knot = 5
+```{r}
+#| tbl-cap: Scatter plots
+#| layout-ncol: 3
+#| tbl-subcap: true
+#| code-fold: true
+
+fit_rcs <- ols(y ~ rcs(x, 5), data = tut1)
+pred_rcs <- tut1 %>% 
+             mutate(
+               yobs = y,
+           yhat = predict(fit_rcs),
+           resid = y - yhat)
+
+x_y_plot <- ggplot(pred_rcs, aes(x,yobs) )+
+  geom_point()+
+  geom_smooth()
+
+x_resid_plot <- ggplot(pred_rcs, aes(x,resid) )+
+  geom_point()+
+  geom_smooth()
+
+
+yhat_resid_plot <- ggplot(pred_rcs, aes(yhat,resid) )+
+  geom_point()+
+  geom_smooth()
+
+x_y_plot
+
+x_resid_plot 
+
+yhat_resid_plot
+
+
+```
+:::
+
+Conclusion: `knots = 4` is good enough to fit the data! `knots = 5` may lead to **overfitting**.
+
+## Q2
+
+> Q2 is a similar question but with more than one predictor!
+
+Load the data frame FEV from the file FEV.RData. For these data, use the variable fev as the response and the rest as the explanatory covariates.
+
+```{r}
+load(here('data','FEV.rdata'))
+```
+
+```{r}
+FEV %>% 
+  head() %>% 
+  kable()
+```
+Fit an additive linear model to fev using the other variables as the covariates. Evaluate whether any of the continuous variables should be fit as non-linear terms.
+
+fit the linear model
+```{r}
+#| tbl-cap: Residual plots
+#| layout-ncol: 2
+#| tbl-subcap: true
+fev_lm <- ols(fev ~ age + height + sex + smoke,
+               data = FEV)
+
+pred_fev <- FEV %>% 
+             mutate(
+               yobs = fev,
+           yhat = predict(fev_lm),
+           resid = yobs - yhat)
+
+age_resid_plot <- ggplot(pred_fev, aes(age,resid) )+
+  geom_point()+
+  geom_smooth()
+
+height_resid_plot <- ggplot(pred_fev, aes(height,resid) )+
+  geom_point()+
+  geom_smooth()
+
+age_resid_plot
+height_resid_plot
+
+```
+
+:::{.callout-warning}
+### What do the residual plots indicate?
+non-linear relationship!
+:::
+
+Fit RCS:
+```{r}
+fev_rcs <- ols(fev ~ rcs(age, 4) + rcs(height, 4) + sex + smoke,
+                data = FEV)
+```
+
+Again, check the diagnostic plots:
+
+```{r}
+#| layout-ncol: 3
+pred_fev <- FEV %>% 
+             mutate(
+               yobs = fev,
+           yhat = predict(fev_rcs),
+           resid = yobs - yhat)
+
+age_y_plot <- ggplot(pred_fev, aes(age,yobs) )+
+  geom_point()+
+  geom_smooth()
+
+age_resid_plot <- ggplot(pred_fev, aes(age,resid) )+
+  geom_point()+
+  geom_smooth()
+
+
+yhat_resid_plot <- ggplot(pred_fev, aes(yhat,resid) )+
+  geom_point()+
+  geom_smooth()
+
+age_y_plot
+
+age_resid_plot 
+
+yhat_resid_plot
+
+```
+
+```{r}
+#| layout-ncol: 3
+height_y_plot <- ggplot(pred_fev, aes(height,yobs) )+
+  geom_point()+
+  geom_smooth()
+
+height_resid_plot <- ggplot(pred_fev, aes(height,resid) )+
+  geom_point()+
+  geom_smooth()
+
+
+yhat_resid_plot <- ggplot(pred_fev, aes(yhat,resid) )+
+  geom_point()+
+  geom_smooth()
+
+height_y_plot
+
+height_resid_plot 
+
+yhat_resid_plot
+```

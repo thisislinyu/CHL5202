@@ -1,0 +1,127 @@
+---
+title: "Tutorial 3: Logistic Regression 1"
+author: "Lin Yu"
+date: "2025-02-03"
+format: 
+  html: 
+    toc: true
+    embed-resources: true
+---
+
+```{r}
+#| warning: false
+#| message: false
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(here)
+```
+
+## Recap of Tutorial 2
+
+Let's review several fundamental statistical concepts: 
+
+1. In the following simple linear model, which component(s) are random, and which are fixed/constant?  
+
+
+$Y = X\beta + \epsilon \quad \text{or} \quad E(Y\mid X) = X\beta, \quad \text{where} \quad \epsilon \sim N(0, \sigma^2)$
+
+:::{.callout-note collapse="true"}
+### Check Answer
+-$Y$ is random and assumed to follow a normal distribution with mean $X\beta$ and variance$\sigma^2$ for each individual (recall the LINE assumptions).        
+- The parameter$\beta$ is a constant (in the frequentist view) but unknown.   
+-$X$ is fixed.  
+-$\epsilon$ is random.  
+:::
+
+2. What are the estimand, estimator, and estimate?  
+
+:::{.callout-note collapse="true"}
+### Check Answer
+Using simple linear regression as an example:
+
+- The **estimand** is the parameter we aim to estimate, which is$\beta$.  
+- An **estimator** is a function of the data used to estimate$\beta$. The maximum likelihood estimator (MLE) for$\beta_1$ is:  $\hat{\beta}_1 = \frac{\sum_{i=1}^{n} (X_i - \bar{X})(Y_i - \bar{Y})}{\sum_{i=1}^{n} (X_i - \bar{X})^2}$
+
+Different estimators can be proposed; for example, if one proposed $\tilde{\beta}_1 = \bar{Y}$, it would likely fail to capture the true association between $X$ and $Y$.  
+
+- An **estimate** is the specific numerical value obtained from an estimator after applying it to observed data. Since data are random, the estimator $\hat{\beta}$ is also random. However, for a specific dataset, the estimate is a fixed number.  
+:::
+
+3. What are standard error and standard deviation? Which varies with sample size and why?  
+
+:::{.callout-note collapse="true"}
+### Check Answer
+- The **standard error (SE)** is the standard deviation of an estimator. It quantifies the variability of the estimator across different samples. Since the precision of an estimator depends on the sample size, a larger sample size leads to a smaller standard error.  
+- The **standard deviation (SD)** measures the variability of the data itself. For example, the variation in heights within a classroom is a fixed property of the data and does not depend on the sample size.  
+:::
+
+4. What is a linear regression model, and which of the following models are linear?  
+
+1.$E(Y\mid X) = \beta_1X + \beta_2 X^2$  
+2.$E(Y\mid X) = \beta_1X + \beta_2 \log(X)$  
+3.$\log(E(Y\mid X)) = \beta_1X + \beta_2 X^2$  
+4.$E(Y\mid X)= \beta_1X + \beta_2^2X$  
+
+:::{.callout-note collapse="true"}
+### Check Answer
+All models except the last one are linear models.  
+
+- **Linearity in regression refers to linearity in parameters, not necessarily in predictors.**  
+- The first three models are linear in regression parameters$\beta_1$ and$\beta_2$, even though they include transformations of $X$.  
+- The fourth model is **not** linear because $\beta_2^2$ introduces a non-linear transformation of a parameter.  
+:::
+
+## Tutorial 3
+
+Today, we'll work on logistic regression.
+```{r}
+library(rms)
+library(here)
+load(here("data","tutdata.RData"))
+dd <- datadist(tutdata)
+options(datadist = "dd")
+
+fit <- lrm(y ~ blood.pressure + sex + age + rcs(cholesterol, 4), data = tutdata)
+
+anova(fit)
+
+fit %>% coef()
+
+fit %>% vcov()
+
+
+## point estimate of beta_sex
+beta_sex_hat <- coef(fit)["sex=male"]
+
+## standard error for coef of sex
+beta_sex_se <- sqrt(vcov(fit)[3,3])
+
+## we know beta_hat follows a normal distribution, with mean=beta_sex_hat, 
+
+alpha <- qnorm(0.975,mean=0,sd=1)
+alpha
+upper <- exp(beta_sex_hat + alpha*beta_sex_se)
+lower <- exp(beta_sex_hat - alpha*beta_sex_se)
+
+lower 
+upper 
+
+
+```
+
+The odds of the outcome for males is 1.61 times that for females (95% CI of 1.25 to 2.08) controlled for blood pressure, age and cholesterol.
+
+```{r}
+
+## log odds
+plot(Predict(fit, cholesterol))
+
+
+## probability
+plot(Predict(fit, cholesterol, fun = plogis), ylab = "Probability")
+
+## Odds
+
+plot(Predict(fit, cholesterol, fun = exp), ylab = "Odds")
+```
