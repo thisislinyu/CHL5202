@@ -1,5 +1,5 @@
 ---
-title: "Tutorial 3: Logistic Regression 1"
+title: "Logistic Regression 1"
 author: "Lin Yu"
 date: "2025-02-03"
 format: 
