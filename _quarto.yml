@@ -15,7 +15,6 @@ book:
     - Tutorial6/Tut6.qmd
     - Tutorial7/Tut7.qmd
     - Tutorial8/Tut8.qmd
-    - references.qmd
 
 bibliography: references.bib
 
